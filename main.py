@@ -35,7 +35,7 @@ load_dotenv()
 
 # 1. Organization Chat & Embedding LLM Initialization
 OMNI_API_KEY = os.getenv("OMNI_API_KEY")
-OMNI_BASE_URL = os.getenv("OMNI_BASE_URL", "https://<ENDPOINT>.ai")
+OMNI_BASE_URL = os.getenv("OMNI_BASE_URL", "https://omnisphere.ai")
 OMNI_MODEL = os.getenv("OMNI_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash")
 
 OMNI_EMBEDDING_API_KEY = os.getenv("OMNI_EMBEDDING_API_KEY")
@@ -426,6 +426,7 @@ async def lifespan(app: FastAPI):
         rag_multi_agent_app = workflow.compile(checkpointer=checkpointer)
         yield
 
+
 class FeedbackRequest(BaseModel):
     username: str
     thread_id: str
@@ -601,6 +602,26 @@ async def list_runbooks():
         "files": files,
         "total_chunks": len(all_chunks)
     }
+
+@app.delete("/runbooks/{filename}")
+async def delete_runbook(filename: str):
+    """Deletes a runbook file from ./runbooks_pdf and rebuilds the FAISS index."""
+    global vectorstore
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join(pdf_folder_path, safe_filename)
+
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail=f"Runbook '{safe_filename}' not found.")
+
+    try:
+        os.remove(file_path)
+        vectorstore = build_or_load_vectorstore(force_rebuild=True)
+        return {
+            "status": "success",
+            "message": f"Deleted '{safe_filename}' and rebuilt index ({len(all_chunks)} chunks)."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/upload-runbook")
 async def upload_runbook(file: UploadFile = File(...)):
