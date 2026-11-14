@@ -35,7 +35,7 @@ load_dotenv()
 
 # 1. Organization Chat & Embedding LLM Initialization
 OMNI_API_KEY = os.getenv("OMNI_API_KEY")
-OMNI_BASE_URL = os.getenv("OMNI_BASE_URL", "https://omnisphere.ai")
+OMNI_BASE_URL = os.getenv("OMNI_BASE_URL", "https://<ENDPOINT>.ai")
 OMNI_MODEL = os.getenv("OMNI_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash")
 
 OMNI_EMBEDDING_API_KEY = os.getenv("OMNI_EMBEDDING_API_KEY")
