@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: rag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: rag-fastapi
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./runbooks_pdf:/app/runbooks_pdf
+      - ./faiss_index:/app/faiss_index
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: .
+    container_name: rag-streamlit
+    restart: unless-stopped
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    env_file:
+      - .env
+    environment:
+      # Override endpoint URLs to use internal Docker DNS ('backend')
+      API_URL: http://backend:8000/chat
+      STREAM_URL: http://backend:8000/chat/stream
+      FEEDBACK_URL: http://backend:8000/feedback
+      FEEDBACK_EXPORT_URL: http://backend:8000/feedback/export
+      RELOAD_URL: http://backend:8000/reload
+      LOGIN_URL: http://backend:8000/login
+      REGISTER_URL: http://backend:8000/register
+      UPLOAD_URL: http://backend:8000/upload-runbook
+      RUNBOOKS_URL: http://backend:8000/runbooks
+      SESSIONS_URL: http://backend:8000/sessions
+      HISTORY_URL: http://backend:8000/history
+      NO_PROXY: backend,localhost,127.0.0.1
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
